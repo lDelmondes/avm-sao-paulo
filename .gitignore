@@ -1,0 +1,16 @@
+# Ambiente virtual — NUNCA versionar
+venv/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+
+# Checkpoints do Jupyter
+.ipynb_checkpoints/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Dados — não versionar (ver explicação abaixo)
+data/
