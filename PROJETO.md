@@ -1,12 +1,5 @@
 # Projeto AVM — Precificação de Imóveis em São Paulo
 
-> **Documento central de referência do projeto.**
-> Modelo de avaliação automatizada (*Automated Valuation Model*) para apartamentos em São Paulo, construído como projeto pessoal/acadêmico no contexto do MBA em Data Science, IA e Analytics (USP/ESALQ).
->
-> *Última atualização: 25/06/2026 — versão 1.0*
-
----
-
 ## Índice
 
 1. [Visão geral](#1-visão-geral)
@@ -19,7 +12,7 @@
 8. [Roadmap por fases](#8-roadmap-por-fases)
 9. [Abordagem de modelagem](#9-abordagem-de-modelagem)
 10. [Embasamento (normativo, acadêmico, mercado)](#10-embasamento-normativo-acadêmico-mercado)
-11. [Conexão com a ementa do MBA](#11-conexão-com-a-ementa-do-mba)
+11. [Áreas técnicas cobertas pelo projeto](#11-áreas-técnicas-cobertas-pelo-projeto)
 12. [Glossário](#12-glossário)
 
 ---
@@ -36,9 +29,14 @@ A natureza do que estamos construindo é um **AVM-produto** (uma *sugestão* de 
 
 ## 2. Objetivos
 
-### Objetivo técnico do projeto
+**Objetivo principal.** Construir um modelo de avaliação automatizada (AVM) que estime o preço de anúncio de apartamentos em São Paulo a partir de suas características — um modelo para venda e outro para locação —, tendo o **MAPE** como métrica primária de sucesso.
 
-Entregar um modelo de precificação funcional e uma aplicação web pública que gera recomendações de preço para venda e para locação.
+**Objetivos específicos.**
+- Estabelecer um baseline de **regressão linear múltipla** e compará-lo a modelos de **machine learning** (Random Forest, XGBoost), quantificando o trade-off entre interpretabilidade e acurácia.
+- Incorporar a **dimensão espacial** (distância a estações de transporte e *spatial lag*) como componente central do modelo.
+- Entregar uma **aplicação web** que recebe os atributos de um imóvel e retorna uma recomendação de valor explicável.
+
+**Critério de conclusão.** Os dois modelos treinados e avaliados no conjunto de teste, a comparação entre metodologias documentada, e a aplicação publicada e funcional.
 
 ---
 
@@ -54,12 +52,18 @@ Entregar um modelo de precificação funcional e uma aplicação web pública qu
 - Estrutura limpa: cada coluna é um atributo honesto do imóvel.
 - Tem o eixo **venda vs. aluguel** (`Negotiation Type`) → dois modelos pelo preço de um.
 - Tem **latitude/longitude** → habilita toda a frente espacial (o MUST do projeto).
-- Espelha a estrutura da base real da empresa (preço de **anúncio** + atributos) → metodologia transferível.
 
 **Limitações assumidas conscientemente:**
 - É **preço de anúncio**, não de transação (anúncio é sistematicamente acima do valor de fechamento).
-- É de **abril/2019** → não serve para precificar imóveis *hoje* (irrelevante para aprender e para o POC; o método é o mesmo). **Toda variável de enriquecimento deve respeitar essa janela temporal.**
-- Escopo: **apenas apartamentos** (não generaliza para casas — declarar como limitação).
+- É de **abril/2019** → não serve para precificar imóveis *hoje* (irrelevante para o objetivo do projeto; o método é o mesmo). **Toda variável de enriquecimento deve respeitar essa janela temporal.**
+- Escopo: **apenas apartamentos** (confirmado via `Property Type` — 100% apartamentos; não generaliza para casas).
+
+**Estado após a auditoria:**
+- Partiu de **13.640** registros brutos → **12.759** após tratamento.
+- **17** coordenadas invertidas (lat/lon trocadas) corrigidas por troca de campo.
+- **881** registros com coordenada (0, 0) removidos (geolocalização ausente, distribuída de forma difusa por 83 bairros → remoção sem viés).
+- **1.887** valores de `Condo = 0` convertidos em `NaN` (missing disfarçado de zero; imputação fica para a modelagem).
+- Base tratada vive em `df_tratado`; o `df` original permanece intocado (reprodutibilidade).
 
 ---
 
@@ -68,11 +72,10 @@ Entregar um modelo de precificação funcional e uma aplicação web pública qu
 | # | Decisão | Detalhe |
 |---|---------|---------|
 | 1 | **Venda E aluguel** | **Dois modelos separados**, não um modelo único com `Negotiation Type` como feature. Motivo: os preços implícitos dos atributos são estruturalmente diferentes entre comprar e alugar (escala e elasticidade distintas). Bônus: comparar os coeficientes vira insight de produto. |
-| 2 | **Frente espacial = MUST** | **Spatial lag + autocorrelação espacial** são obrigatórios (a base real da empresa tem 95% de geolocalização preenchida — esta é a competência mais estratégica a desenvolver). Complementos confirmados: **distância à estação de metrô/trem mais próxima** e **bloco socioeconômico** (IDH, renda, Gini). |
-| 3 | **Aplicação = Streamlit** | **Streamlit + Streamlit Community Cloud** (hospedagem pública gratuita). *Não* Vercel (Vercel hospeda front-end JS, não roda o modelo Python). Objetivo: link público para portfólio, qualquer pessoa testa. |
+| 2 | **Frente espacial = MUST** | **Spatial lag + autocorrelação espacial** são componentes obrigatórios do modelo: a localização é o principal determinante de preço imobiliário, e o *spatial lag* captura efeitos locais não observados pelas demais variáveis. Complementos: **distância à estação de metrô/trem mais próxima** e **bloco socioeconômico do entorno** (IDH, renda, Gini). |
+| 3 | **Aplicação = Streamlit** | **Streamlit + Streamlit Community Cloud** (hospedagem pública gratuita). *Não* Vercel (Vercel hospeda front-end JS, não roda o modelo Python). Objetivo: link público, qualquer pessoa testa. |
 | 4 | **Ambiente local** | VSCode local + ambiente virtual Python (`venv`). Sem nuvem para processamento — a máquina dá conta deste volume. |
-| 5 | **Ritmo livre** | Sem prazo. Postura: **caprichar, não cortar**. Profundidade na frente espacial, pausas para praticar quando algo não assentar. Horizonte estimado: 6–10 semanas a ~15h/semana. |
-| 6 | **Claude Code: depois** | As fases iniciais (auditoria, EDA, baseline) são feitas **no chat**, devagar, para maximizar aprendizado. Migração para Claude Code quando houver fluência e o gargalo virar produtividade (provavelmente na fase de boosting ou da app). |
+| 5 | **Profundidade, não atalhos** | Diretriz de escopo: completar bem cada frente — em especial a espacial — em vez de cortar caminho. Sem reduções de escopo por pressa. |
 
 ---
 
@@ -86,8 +89,8 @@ Entregar um modelo de precificação funcional e uma aplicação web pública qu
 
 **Âncoras de expectativa (para não frustrar nem iludir):**
 - R² acima de **0,70** é a referência de modelo decente na tradição NBR.
-- MAPE realista para o nosso contexto (anúncio, ~13k linhas, 2019): faixa de **15–25%** no baseline, melhorando com boosting.
-- AVMs de ponta (Zillow, Loft) atingem MAPE de 5–10%, mas com **milhões** de transações reais. **Não comparar nosso resultado com o deles.**
+- MAPE realista para este contexto (anúncio, ~13k linhas, 2019): faixa de **15–25%** no baseline, melhorando com boosting.
+- AVMs de ponta (Zillow, Loft) atingem MAPE de 5–10%, mas com **milhões** de transações reais. Não comparar o resultado deste projeto com o deles.
 
 **Critério de comparação entre modelos:** o modelo vencedor é o de menor MAPE no conjunto de **teste** (nunca no treino), com R² e MAE como desempate/contexto.
 
@@ -126,7 +129,7 @@ avm-sao-paulo/
 Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 - **Anti-leakage (o mais crítico):** o **train/test split é feito CEDO**, antes de qualquer transformação que aprenda com os dados. Toda estatística — média para preencher missing, parâmetros de encoding, e **o próprio spatial lag** — é calculada **só no treino** e aplicada no teste. Calcular qualquer média usando o dataset inteiro antes de dividir = vazamento.
-- **Endogeneidade:** `Condo` (condomínio) é consequência do mesmo padrão construtivo que determina o preço, não causa dele. Ajuda a predição, mas contamina interpretação causal e infla a sensação de acurácia. Decisão consciente de incluir/excluir, com olhos abertos. (Mesmo raciocínio valeria para IPTU na base real.)
+- **Endogeneidade:** `Condo` (condomínio) é consequência do mesmo padrão construtivo que determina o preço, não causa dele. Ajuda a predição, mas contamina interpretação causal e infla a sensação de acurácia. Decisão consciente de incluir/excluir, com olhos abertos.
 - **Multicolinearidade:** atributos de tamanho (`Size`, `Rooms`, `Toilets`, `Suites`) são correlacionados; o bloco socioeconômico (IDH, renda, Gini) é quase um fator latente único. Para a regressão, checar **VIF**; considerar reduzir o bloco socioeconômico (escolher um, ou PCA).
 - **Contemporaneidade temporal:** todo enriquecimento deve refletir a realidade de **2019**. Censo a usar = **2010** (era o vigente em 2019). Estações de metrô/trem = só as que **já existiam em jan/2019** (não dar ao modelo uma amenidade que o comprador da época não tinha).
 - **Interpretabilidade:** se o modelo black-box (XGBoost) vencer, abrir a caixa com **SHAP** — a recomendação na app precisa ser explicável ("R$ 600 mil, puxado por localização e metragem"), não um número solto. Também honra a exigência de interpretabilidade da tradição normativa brasileira.
@@ -136,22 +139,22 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 ## 8. Roadmap por fases
 
 ### Fase 0 — Fundação
-- [ ] Criar pasta do projeto e abrir no VSCode
-- [ ] Criar e ativar o ambiente virtual (`venv`)
-- [ ] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
-- [ ] Colocar o CSV em `data/`
-- [ ] Criar o primeiro notebook e conectar o kernel ao `venv`
-- [ ] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
+- [x] Criar pasta do projeto e abrir no VSCode
+- [x] Criar e ativar o ambiente virtual (`venv`)
+- [x] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
+- [x] Colocar o CSV em `data/`
+- [x] Criar o primeiro notebook e conectar o kernel ao `venv`
+- [x] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
 - [x] Definir as métricas de sucesso (MAPE / MAE / R²)
 
 ### Fase 1 — Auditoria e EDA
-- [ ] Distribuição do `Price` (provável cauda à direita → log)
-- [ ] Investigar `Condo` (endogeneidade; quão colado está no preço?)
-- [ ] Identificar e tratar outliers e valores faltantes (missing)
-- [ ] Validar `Latitude`/`Longitude` (coordenadas plausíveis para SP?)
-- [ ] Esclarecer colunas ambíguas (ex.: o que é cada categoria de `Property Type`)
-- [ ] Separar os dados em **venda** e **aluguel**
-- [ ] Documentar achados da auditoria
+- [x] Distribuição do `Price` (provável cauda à direita → log)
+- [x] Investigar `Condo` (endogeneidade; quão colado está no preço?)
+- [x] Identificar e tratar outliers e valores faltantes (missing)
+- [x] Validar `Latitude`/`Longitude` (coordenadas plausíveis para SP?)
+- [x] Esclarecer colunas ambíguas (ex.: o que é cada categoria de `Property Type`)
+- [x] Separar os dados em **venda** e **aluguel**
+- [x] Documentar achados da auditoria
 
 ### Fase 2 — Split e tratamento
 - [ ] **Train/test split** (feito antes de qualquer transformação que aprenda dos dados)
@@ -182,7 +185,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 - [ ] Integração do modelo treinado → recomendação de preço
 - [ ] Exibir a recomendação com explicação (o "porquê" do valor)
 - [ ] Deploy no Streamlit Community Cloud (link público)
-- [ ] Documentação final + seção de privacidade/LGPD (ponte para a base real)
+- [ ] Documentação final
 
 ---
 
@@ -190,7 +193,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 **Escada de três níveis, de interpretável a preciso:**
 
-1. **Regressão linear múltipla (baseline normativo).** Método que a NBR 14653 consagra. Trabalha com **log do preço** (relação hedônica é multiplicativa; resíduos do preço bruto são feios). Box-Cox e diagnósticos formais (normalidade, homocedasticidade, multicolinearidade) fazem parte. É o terreno econométrico forte do autor, agora em Python.
+1. **Regressão linear múltipla (baseline normativo).** Método que a NBR 14653 consagra. Trabalha com **log do preço** (relação hedônica é multiplicativa; resíduos do preço bruto são feios). Box-Cox e diagnósticos formais (normalidade, homocedasticidade, multicolinearidade) fazem parte.
 
 2. **Random Forest (bagging).** Robusto, pouca configuração. Segundo degrau; tolera melhor a colinearidade.
 
@@ -198,7 +201,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 *Redes neurais ficam fora deste projeto* — para dados tabulares deste tamanho raramente batem boosting e adicionam complexidade sem retorno.
 
-**A comparação entre os três níveis É a narrativa central do projeto:** quando vale o modelo auditável e interpretável (regressão) vs. quando vale o modelo preciso e black-box (boosting). Esse contraste é o argumento de Data Product Manager.
+**A comparação entre os três níveis é a questão central do projeto:** quando vale o modelo auditável e interpretável (regressão) vs. quando vale o modelo preciso e black-box (boosting). Esse contraste — interpretabilidade contra acurácia — é o que o projeto investiga.
 
 ---
 
@@ -224,18 +227,16 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 ---
 
-## 11. Conexão com a ementa do MBA
+## 11. Áreas técnicas cobertas pelo projeto
 
-| Fase / tema do projeto | Disciplina da ementa |
-|------------------------|----------------------|
-| Manipulação de dados, Jupyter, GitHub | Data Wrangling |
-| Regressão baseline + diagnósticos | Supervised ML: Regressão Simples e Múltipla |
-| Random Forest, XGBoost, validação | Árvores, Redes e Ensemble Models |
-| Spatial lag, autocorrelação, shapefiles | Análise Estatística Espacial |
-| PCA do bloco socioeconômico (se usado) | Unsupervised ML: Análise Fatorial e PCA |
-| Features de texto do anúncio (futuro) | Text Mining, Sentiment Analysis e NLP |
-| Aplicação web / encapsulamento do modelo | Big Data e Deployment de Modelos |
-| Tratamento de dado pessoal (base real) | Legislação no Ambiente Digital (LGPD); Analytics e Gestão de Riscos |
+| Fase / tema do projeto | Área técnica |
+|------------------------|--------------|
+| Manipulação e limpeza de dados | Data wrangling |
+| Regressão baseline + diagnósticos | Regressão linear múltipla / inferência estatística |
+| Random Forest, XGBoost, validação | Ensembles (bagging / boosting) |
+| Spatial lag, autocorrelação, distância a POIs | Estatística espacial |
+| Redução do bloco socioeconômico (se aplicada) | Análise fatorial / PCA |
+| Encapsulamento e publicação do modelo | Deployment de modelos |
 
 ---
 
