@@ -114,12 +114,18 @@ A natureza do que estamos construindo é um **AVM-produto** (uma *sugestão* de 
 **Estrutura de pastas:**
 ```
 avm-sao-paulo/
-├── venv/                  # ambiente virtual (não versionar)
-├── data/                  # dados brutos
-│   └── sao-paulo-properties-april-2019.csv
-├── notebooks/             # análises (.ipynb)
-├── src/                   # código reutilizável (.py) — surge mais adiante
-└── app/                   # aplicação Streamlit — fase final
+├── venv/                       # ambiente virtual (não versionar)
+├── data/                       # dados brutos (não versionar)
+│   ├── sao-paulo-properties-april-2019.csv
+│   └── processed/              # artefatos tratados, ponte entre notebooks
+│       └── imoveis_tratados.parquet
+├── 01_auditoria.ipynb          # Fase 1
+├── 02_preparacao.ipynb         # Fases 2 e 3
+├── 03_modelagem.ipynb          # Fases 4 e 5
+├── app/                        # aplicação Streamlit — Fase 6
+├── PROJETO.md                  # este documento
+├── requirements.txt
+└── README.md
 ```
 
 ---
@@ -138,23 +144,34 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 ## 8. Roadmap por fases
 
+**Fase ≠ notebook.** *Fase* é uma divisão conceitual do trabalho (as etapas lógicas abaixo); *notebook* é a divisão física dos arquivos. Não há correspondência 1:1 — um notebook agrupa as fases que formam um fluxo contínuo de ponta a ponta e produzem um artefato. O mapeamento:
+
+| Notebook / arquivo | Fases | Artefato produzido |
+|--------------------|-------|--------------------|
+| `01_auditoria.ipynb` | Fase 1 (auditoria + tratamento) | `imoveis_tratados.parquet` |
+| `02_preparacao.ipynb` | Fases 2 e 3 (split, transformações, encoding, enriquecimento espacial e socioeconômico) | base pronta para modelar, com todas as features |
+| `03_modelagem.ipynb` | Fases 4 e 5 (regressão, RF, XGBoost, comparação, SHAP) | modelos treinados e avaliados |
+| `app/` (`.py`) | Fase 6 | aplicação Streamlit publicada |
+
+As Fases 2 e 3 convivem no mesmo notebook porque preparar e enriquecer são um fluxo único de montagem da tabela de features. Se o `02` crescer a ponto de ficar difícil de navegar, ele será dividido (provável corte: o enriquecimento espacial em um `02b`/`03_features.ipynb`) — decisão revisitada quando o tamanho incomodar, não a priori.
+
 ### Fase 0 — Fundação
-- [x] Criar pasta do projeto e abrir no VSCode
-- [x] Criar e ativar o ambiente virtual (`venv`)
-- [x] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
-- [x] Colocar o CSV em `data/`
-- [x] Criar o primeiro notebook e conectar o kernel ao `venv`
-- [x] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
+- [ ] Criar pasta do projeto e abrir no VSCode
+- [ ] Criar e ativar o ambiente virtual (`venv`)
+- [ ] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
+- [ ] Colocar o CSV em `data/`
+- [ ] Criar o primeiro notebook e conectar o kernel ao `venv`
+- [ ] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
 - [x] Definir as métricas de sucesso (MAPE / MAE / R²)
 
 ### Fase 1 — Auditoria e EDA
-- [x] Distribuição do `Price` (provável cauda à direita → log)
-- [x] Investigar `Condo` (endogeneidade; quão colado está no preço?)
-- [x] Identificar e tratar outliers e valores faltantes (missing)
-- [x] Validar `Latitude`/`Longitude` (coordenadas plausíveis para SP?)
-- [x] Esclarecer colunas ambíguas (ex.: o que é cada categoria de `Property Type`)
-- [x] Separar os dados em **venda** e **aluguel**
-- [x] Documentar achados da auditoria
+- [ ] Distribuição do `Price` (provável cauda à direita → log)
+- [ ] Investigar `Condo` (endogeneidade; quão colado está no preço?)
+- [ ] Identificar e tratar outliers e valores faltantes (missing)
+- [ ] Validar `Latitude`/`Longitude` (coordenadas plausíveis para SP?)
+- [ ] Esclarecer colunas ambíguas (ex.: o que é cada categoria de `Property Type`)
+- [ ] Separar os dados em **venda** e **aluguel**
+- [ ] Documentar achados da auditoria
 
 ### Fase 2 — Split e tratamento
 - [ ] **Train/test split** (feito antes de qualquer transformação que aprenda dos dados)
