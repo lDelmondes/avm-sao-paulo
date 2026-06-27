@@ -62,8 +62,8 @@ A natureza do que estamos construindo é um **AVM-produto** (uma *sugestão* de 
 - Partiu de **13.640** registros brutos → **12.759** após tratamento.
 - **17** coordenadas invertidas (lat/lon trocadas) corrigidas por troca de campo.
 - **881** registros com coordenada (0, 0) removidos (geolocalização ausente, distribuída de forma difusa por 83 bairros → remoção sem viés).
-- **1.887** valores de `Condo = 0` convertidos em `NaN` (missing disfarçado de zero; imputação fica para a modelagem).
-- Base tratada vive em `df_tratado`; o `df` original permanece intocado (reprodutibilidade).
+- **1.887** valores de `Condo = 0` convertidos em `NaN` (missing disfarçado de zero). Posteriormente, `Condo` foi **descartado do modelo** (missing não-aleatório + multicolinearidade com as comodidades).
+- Base tratada salva em `data/processed/imoveis_tratados.parquet`; o `df` original permanece intocado (reprodutibilidade).
 
 ---
 
@@ -155,31 +155,34 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 As Fases 2 e 3 convivem no mesmo notebook porque preparar e enriquecer são um fluxo único de montagem da tabela de features. Se o `02` crescer a ponto de ficar difícil de navegar, ele será dividido (provável corte: o enriquecimento espacial em um `02b`/`03_features.ipynb`) — decisão revisitada quando o tamanho incomodar, não a priori.
 
-### Fase 0 — Fundação
-- [ ] Criar pasta do projeto e abrir no VSCode
-- [ ] Criar e ativar o ambiente virtual (`venv`)
-- [ ] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
-- [ ] Colocar o CSV em `data/`
-- [ ] Criar o primeiro notebook e conectar o kernel ao `venv`
-- [ ] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
+**Progresso atual:** Fases 0, 1 e 2 concluídas, e o baseline da Fase 4 (regressão linear múltipla, venda e aluguel) treinado, validado e documentado. **Próximo passo: Fase 3** (enriquecimento espacial e socioeconômico).
+
+### Fase 0 — Fundação ✅
+- [x] Criar pasta do projeto e abrir no VSCode
+- [x] Criar e ativar o ambiente virtual (`venv`)
+- [x] Instalar bibliotecas da fase (pandas, numpy, matplotlib, seaborn, jupyter)
+- [x] Colocar o CSV em `data/`
+- [x] Criar o primeiro notebook e conectar o kernel ao `venv`
+- [x] Carregar a base e rodar primeira inspeção (`shape`, `head()`, `info()`)
 - [x] Definir as métricas de sucesso (MAPE / MAE / R²)
+- [x] Repositório criado e publicado no GitHub
 
-### Fase 1 — Auditoria e EDA
-- [ ] Distribuição do `Price` (provável cauda à direita → log)
-- [ ] Investigar `Condo` (endogeneidade; quão colado está no preço?)
-- [ ] Identificar e tratar outliers e valores faltantes (missing)
-- [ ] Validar `Latitude`/`Longitude` (coordenadas plausíveis para SP?)
-- [ ] Esclarecer colunas ambíguas (ex.: o que é cada categoria de `Property Type`)
-- [ ] Separar os dados em **venda** e **aluguel**
-- [ ] Documentar achados da auditoria
+### Fase 1 — Auditoria e EDA ✅
+- [x] Distribuição do `Price` (cauda à direita confirmada → log na modelagem)
+- [x] Investigar `Condo` (`Condo = 0` identificado como missing não-aleatório → descartado)
+- [x] Identificar e tratar outliers e valores faltantes (missing)
+- [x] Validar `Latitude`/`Longitude` (881 zerados removidos, 17 invertidos corrigidos)
+- [x] Esclarecer colunas ambíguas (`Property Type` = 100% apartamentos)
+- [x] Separar os dados em **venda** (6.014) e **aluguel** (6.745)
+- [x] Documentar achados da auditoria (padrão de 3 tempos: abre → código → fecha)
 
-### Fase 2 — Split e tratamento
-- [ ] **Train/test split** (feito antes de qualquer transformação que aprenda dos dados)
-- [ ] Transformações log (preço e, provavelmente, área)
-- [ ] Encoding do `District` (decidir estratégia: one-hot, target encoding, ou via geografia)
-- [ ] Estratégia de validação cruzada definida
+### Fase 2 — Split e tratamento ✅
+- [x] **Train/test split** (80/20, semente fixa, feito antes de qualquer transformação)
+- [x] Transformações log (`Price` e `Size`, via `log1p`)
+- [x] Encoding do `District` (one-hot via `OneHotEncoder`, `fit` só no treino, `handle_unknown='ignore'`)
+- [ ] Estratégia de validação cruzada definida (por ora, holdout 80/20 simples; CV a definir para a fase de ML)
 
-### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre)
+### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre) ⬅️ próxima
 - [ ] Distância de cada imóvel à estação de metrô/trem mais próxima **existente em jan/2019**
 - [ ] Cruzar com dados do **Censo 2010** (IDH, renda, Gini por região)
 - [ ] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN
@@ -187,9 +190,18 @@ As Fases 2 e 3 convivem no mesmo notebook porque preparar e enriquecer são um f
 - [ ] Análise de **autocorrelação espacial** (Moran's I / LISA)
 
 ### Fase 4 — Modelagem (×2: venda e aluguel)
-- [ ] Baseline: **regressão linear múltipla** com diagnósticos (normalidade dos resíduos, homocedasticidade, VIF) — referência NBR
+- [x] Baseline: **regressão linear múltipla** com diagnósticos (VIF, normalidade dos resíduos, homocedasticidade) — referência NBR
 - [ ] **Random Forest** (bagging)
 - [ ] **XGBoost** (boosting — candidato a campeão, segundo a literatura BR)
+
+> **Marco-zero — baseline concluído** (atributos físicos + `District` one-hot, sem features espaciais):
+>
+> | Modelo | MAPE | R² | Diagnósticos NBR |
+> |--------|------|-----|------------------|
+> | **Venda** | 16,5% | 0,893 | Validados — VIF moderado (`Toilets`/`Suites` ~5), caudas pesadas nos extremos, heterocedasticidade leve |
+> | **Aluguel** | 22,4% | 0,763 | Validados — mais ruidoso no centro, caudas mais leves que a venda |
+>
+> Referência contra a qual o enriquecimento espacial (Fase 3) e os modelos de ML (Fase 4) serão medidos.
 
 ### Fase 5 — Comparação e interpretabilidade
 - [ ] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
@@ -229,13 +241,13 @@ As Fases 2 e 3 convivem no mesmo notebook porque preparar e enriquecer são um f
 - **IBAPE** (Instituto Brasileiro de Avaliações e Perícias de Engenharia) — material técnico de inferência estatística aplicada.
 
 ### Acadêmico (referências brasileiras de ponta)
-- **SEMEAD/USP** — comparação de 6 modelos hedônicos com dados de ITBI (XGBoost e SVM linear venceram).
-- **Revista do Depto. de Geografia/USP** — mass appraisal em Florianópolis com Random Forest e Gradient Boosting.
+- **SEMEAD / UFPR** — comparação de 6 modelos hedônicos com dados de ITBI de **Belo Horizonte** (transação real); XGBoost e SVM linear venceram. Variáveis: bairro, ano de construção, padrão de acabamento, zona de uso (poucas, pois o ITBI é pobre em atributos).
+- **CEFET-RJ / Vetor (Nova Friburgo)** — web scraping do VivaReal (anúncio), regressão linear; área é a variável dominante, ~25% de MAPE. Usou Random Forest para seleção de variáveis e bairro como dummies. **O mais próximo da nossa abordagem.**
+- **Medium / Ulisses (EMBRAESP, SP)** — base CEM/USP, 85 colunas; removeu nº de banheiros por VIF alto; variáveis do censo não ajudaram (sinal amarelo para o nosso bloco socioeconômico).
 - **UNIFESP** — preço de aluguel em SP (XGBoost melhor; tamanho, localização e lazer dominam).
-- **UNESP (São José do Rio Preto)** — distância a POIs + clusters geográficos; árvores superam regressão.
 - **EMBRAESP / CEM-USP** — base georreferenciada clássica de SP, rica em features e setor censitário.
 
-**Padrão consolidado:** (1) área e localização dominam; (2) boosting bate regressão em acurácia; (3) tratamento espacial explícito agrega; (4) lacuna pouco explorada = features de texto/foto do anúncio.
+**Padrão consolidado:** (1) área e localização dominam; (2) boosting bate regressão em acurácia; (3) tratamento espacial explícito agrega; (4) restringir a apartamentos melhora o modelo; (5) lacuna pouco explorada = features espaciais finas (spatial lag) e de texto/foto do anúncio.
 
 ### Mercado (benchmark de produto)
 - **Loft** — "Calculadora Loft": AVM com ML sobre ~10 milhões de anúncios; modelo de casas com 100+ variáveis.
