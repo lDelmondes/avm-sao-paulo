@@ -149,13 +149,13 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 | Notebook / arquivo | Fases | Artefato produzido |
 |--------------------|-------|--------------------|
 | `01_auditoria.ipynb` | Fase 1 (auditoria + tratamento) | `imoveis_tratados.parquet` |
-| `02_preparacao.ipynb` | Fases 2 e 3 (split, transformações, encoding, enriquecimento espacial e socioeconômico) | base pronta para modelar, com todas as features |
-| `03_modelagem.ipynb` | Fases 4 e 5 (regressão, RF, XGBoost, comparação, SHAP) | modelos treinados e avaliados |
+| `02_preparacao.ipynb` | Fase 2 (split, log, encoding) + Fase 3 Bloco 1 (construção e auditoria da feature de distância a estações; limpeza de coordenadas) | `venda_espacial.parquet`, `aluguel_espacial.parquet` |
+| `03_modelagem.ipynb` | Remodelagem sobre a base limpa: preparação, **baseline definitivo**, demais features espaciais (Blocos 2 e 3), RF, XGBoost, comparação, SHAP (Fases 4 e 5) | modelos treinados e avaliados |
 | `app/` (`.py`) | Fase 6 | aplicação Streamlit publicada |
 
-As Fases 2 e 3 convivem no mesmo notebook porque preparar e enriquecer são um fluxo único de montagem da tabela de features. Se o `02` crescer a ponto de ficar difícil de navegar, ele será dividido (provável corte: o enriquecimento espacial em um `02b`/`03_features.ipynb`) — decisão revisitada quando o tamanho incomodar, não a priori.
+Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline registrado anteriormente (16,5% / 22,4%) foi calculado antes dessa limpeza e será recalculado no `03` como marco-zero definitivo.
 
-**Progresso atual:** Fases 0, 1 e 2 concluídas, e o baseline da Fase 4 (regressão linear múltipla, venda e aluguel) treinado, validado e documentado. **Próximo passo: Fase 3** (enriquecimento espacial e socioeconômico).
+**Progresso atual:** Fases 0–2 concluídas; baseline preliminar rodado (16,5% / 22,4%, a recalcular na base limpa). Fase 3 em andamento — **Bloco 1 (distância a estações) concluído**, incluindo a limpeza de coordenadas e a remoção de imóveis fora de escopo. **Próximos passos:** no `03_modelagem`, refazer a preparação e o baseline sobre a base limpa, medir o ganho da distância e seguir para o Bloco 2 (socioeconômico) e o Bloco 3 (spatial lag).
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
