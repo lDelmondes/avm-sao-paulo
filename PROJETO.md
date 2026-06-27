@@ -153,9 +153,9 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 | `03_modelagem.ipynb` | Remodelagem sobre a base limpa: preparação, **baseline definitivo**, demais features espaciais (Blocos 2 e 3), RF, XGBoost, comparação, SHAP (Fases 4 e 5) | modelos treinados e avaliados |
 | `app/` (`.py`) | Fase 6 | aplicação Streamlit publicada |
 
-Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline registrado anteriormente (16,5% / 22,4%) foi calculado antes dessa limpeza e será recalculado no `03` como marco-zero definitivo.
+Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline preliminar (16,5% / 22,4%) foi calculado antes dessa limpeza e **já foi recalculado** no `03` como marco-zero definitivo (17,1% / 22,3% na base limpa).
 
-**Progresso atual:** Fases 0–2 concluídas; baseline preliminar rodado (16,5% / 22,4%, a recalcular na base limpa). Fase 3 em andamento — **Bloco 1 (distância a estações) concluído**, incluindo a limpeza de coordenadas e a remoção de imóveis fora de escopo. **Próximos passos:** no `03_modelagem`, refazer a preparação e o baseline sobre a base limpa, medir o ganho da distância e seguir para o Bloco 2 (socioeconômico) e o Bloco 3 (spatial lag).
+**Progresso atual:** Fases 0–2 concluídas. Baseline oficial recalculado na base limpa (**venda 17,1% / aluguel 22,3%**). Fase 3 em andamento — **Bloco 1 (distância a estações)** e **Bloco 2 (renda do Censo 2010)** concluídos: a distância deu ganho nulo (cortada do baseline, reservada para árvores) e a renda um ganho modesto (mantida em log). **Próximo passo: Bloco 3 — spatial lag** (matriz de vizinhança + preço médio dos vizinhos + autocorrelação de Moran), o ápice da frente espacial.
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
@@ -182,10 +182,10 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 - [x] Encoding do `District` (one-hot via `OneHotEncoder`, `fit` só no treino, `handle_unknown='ignore'`)
 - [ ] Estratégia de validação cruzada definida (por ora, holdout 80/20 simples; CV a definir para a fase de ML)
 
-### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre) ⬅️ próxima
-- [ ] Distância de cada imóvel à estação de metrô/trem mais próxima **existente em jan/2019**
-- [ ] Cruzar com dados do **Censo 2010** (IDH, renda, Gini por região)
-- [ ] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN
+### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre)
+- [x] Distância de cada imóvel à estação de metrô/trem mais próxima **existente em jan/2019** (Bloco 1 — construída, auditada; ganho nulo no baseline, feature reservada para os modelos de árvore)
+- [x] Cruzar com dados do **Censo 2010** — renda média domiciliar por área de ponderação (Bloco 2 — join espacial point-in-polygon; ganho modesto mas real, mantida em log)
+- [ ] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN (Bloco 3)
 - [ ] Calcular o **spatial lag** (preço médio dos vizinhos, só no treino, excluindo a própria observação)
 - [ ] Análise de **autocorrelação espacial** (Moran's I / LISA)
 
@@ -194,14 +194,23 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 - [ ] **Random Forest** (bagging)
 - [ ] **XGBoost** (boosting — candidato a campeão, segundo a literatura BR)
 
-> **Marco-zero — baseline concluído** (atributos físicos + `District` one-hot, sem features espaciais):
+> **Marco-zero — baseline oficial** (regressão linear, atributos físicos + `District` one-hot), calculado sobre a **base limpa** (sem Jundiaí, sem coordenadas corrompidas; venda 5.936 / aluguel 6.687):
 >
 > | Modelo | MAPE | R² | Diagnósticos NBR |
 > |--------|------|-----|------------------|
-> | **Venda** | 16,5% | 0,893 | Validados — VIF moderado (`Toilets`/`Suites` ~5), caudas pesadas nos extremos, heterocedasticidade leve |
-> | **Aluguel** | 22,4% | 0,763 | Validados — mais ruidoso no centro, caudas mais leves que a venda |
+> | **Venda** | 17,1% | 0,887 | Validados — VIF moderado (`Toilets`/`Suites` ~5–7), caudas pesadas nos extremos, heterocedasticidade leve |
+> | **Aluguel** | 22,3% | 0,735 | Validados — mais ruidoso no centro, caudas mais leves que a venda |
 >
-> Referência contra a qual o enriquecimento espacial (Fase 3) e os modelos de ML (Fase 4) serão medidos.
+> *(O baseline preliminar de 16,5% / 22,4% foi descartado: continha imóveis de Jundiaí e coordenadas corrompidas. O número acima, sobre a base limpa, é a referência oficial.)*
+>
+> **Evolução com features espaciais (Fase 3)** — efeito de cada feature adicionada ao baseline, medido pelo mesmo split (forma final entre parênteses):
+>
+> | Modelo | Baseline | + Distância a estação | + Renda da área | Decisão |
+> |--------|----------|----------------------|-----------------|---------|
+> | **Venda** | 17,1% | 17,1% (+0,06 p.p., nulo) | **16,7%** (−0,4 p.p., log) | distância **fora**, renda **mantida** |
+> | **Aluguel** | 22,3% | 22,2% (+0,06 p.p., nulo) | **22,1%** (−0,2 p.p., log) | distância **fora**, renda **mantida** |
+>
+> Achado central até aqui: features de **escala grossa** (que competem com o `District`) rendem pouco — a distância à estação deu ganho nulo (cortada por parcimônia) e a renda, apesar do forte poder discriminante (razão 15x entre áreas), agregou só o resíduo intra-distrito (ganho real mas modesto, mantida). O ganho espacial substancial, se houver, depende do **spatial lag** (Bloco 3), que mede algo que o `District` não captura: o preço real dos vizinhos imediatos, abaixo da escala do bairro.
 
 ### Fase 5 — Comparação e interpretabilidade
 - [ ] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
