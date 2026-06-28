@@ -135,6 +135,7 @@ avm-sao-paulo/
 Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 - **Anti-leakage (o mais crítico):** o **train/test split é feito CEDO**, antes de qualquer transformação que aprenda com os dados. Toda estatística — média para preencher missing, parâmetros de encoding, e **o próprio spatial lag** — é calculada **só no treino** e aplicada no teste. Calcular qualquer média usando o dataset inteiro antes de dividir = vazamento.
+    - **Lógica para validação cruzada:** features que aprendem dos dados — incluindo o **spatial lag** — devem ser **reconstruídas dentro de cada fold**. Calcular o lag no treino inteiro e *depois* fatiar em folds vaza informação entre folds: um ponto do fold-validação acabaria usando como vizinhos pontos do seu próprio fold, indisponíveis em produção.
 - **Endogeneidade:** `Condo` (condomínio) é consequência do mesmo padrão construtivo que determina o preço, não causa dele. Ajuda a predição, mas contamina interpretação causal e infla a sensação de acurácia. Decisão consciente de incluir/excluir, com olhos abertos.
 - **Multicolinearidade:** atributos de tamanho (`Size`, `Rooms`, `Toilets`, `Suites`) são correlacionados; o bloco socioeconômico (IDH, renda, Gini) é quase um fator latente único. Para a regressão, checar **VIF**; considerar reduzir o bloco socioeconômico (escolher um, ou PCA).
 - **Contemporaneidade temporal:** todo enriquecimento deve refletir a realidade de **2019**. Censo a usar = **2010** (era o vigente em 2019). Estações de metrô/trem = só as que **já existiam em jan/2019** (não dar ao modelo uma amenidade que o comprador da época não tinha).
@@ -155,7 +156,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline preliminar (16,5% / 22,4%) foi calculado antes dessa limpeza e **já foi recalculado** no `03` como marco-zero definitivo (17,1% / 22,3% na base limpa).
 
-**Progresso atual:** Fases 0–2 concluídas. Baseline oficial recalculado na base limpa (**venda 17,1% / aluguel 22,3%**). Fase 3 em andamento — **Bloco 1 (distância a estações)** e **Bloco 2 (renda do Censo 2010)** concluídos: a distância deu ganho nulo (cortada do baseline, reservada para árvores) e a renda um ganho modesto (mantida em log). **Próximo passo: Bloco 3 — spatial lag** (matriz de vizinhança + preço médio dos vizinhos + autocorrelação de Moran), o ápice da frente espacial.
+**Progresso atual:** Fases 0–2 concluídas. Baseline oficial na base limpa (**venda 17,1% / aluguel 22,3%**). **Fase 3 (espacial) concluída** — falta só o teste de generalização final no holdout. Bloco 1 (distância): ganho nulo, cortada do baseline, reservada para árvores. Bloco 2 (renda do Censo 2010): testada e depois **descartada**, redundante com o spatial lag. Bloco 3 (**spatial lag**): k=3 escolhido por CV; Moran's I confirmando autocorrelação espacial forte. **Modelo linear espacial final: MAPE 15,14% (venda) / 21,36% (aluguel)** por CV 5-fold, matriz = baseline + `spatial_lag` (sem renda). **Próximo passo: Fase 4 — Random Forest e XGBoost**, reintroduzindo `distancia_estacao` para teste nas árvores.
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
@@ -180,37 +181,33 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 - [x] **Train/test split** (80/20, semente fixa, feito antes de qualquer transformação)
 - [x] Transformações log (`Price` e `Size`, via `log1p`)
 - [x] Encoding do `District` (one-hot via `OneHotEncoder`, `fit` só no treino, `handle_unknown='ignore'`)
-- [ ] Estratégia de validação cruzada definida (por ora, holdout 80/20 simples; CV a definir para a fase de ML)
+- [x] Estratégia de validação cruzada definida (por ora, holdout 80/20 simples; CV a definir para a fase de ML)
 
 ### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre)
 - [x] Distância de cada imóvel à estação de metrô/trem mais próxima **existente em jan/2019** (Bloco 1 — construída, auditada; ganho nulo no baseline, feature reservada para os modelos de árvore)
 - [x] Cruzar com dados do **Censo 2010** — renda média domiciliar por área de ponderação (Bloco 2 — join espacial point-in-polygon; ganho modesto mas real, mantida em log)
-- [ ] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN (Bloco 3)
-- [ ] Calcular o **spatial lag** (preço médio dos vizinhos, só no treino, excluindo a própria observação)
-- [ ] Análise de **autocorrelação espacial** (Moran's I / LISA)
+- [x] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN (Bloco 3)
+- [x] Calcular o **spatial lag** (preço médio dos vizinhos, só no treino, excluindo a própria observação)
+- [x] Análise de **autocorrelação espacial** (Moran's I / LISA)
 
 ### Fase 4 — Modelagem (×2: venda e aluguel)
 - [x] Baseline: **regressão linear múltipla** com diagnósticos (VIF, normalidade dos resíduos, homocedasticidade) — referência NBR
+- [x] **Avaliar a configuração espacial final** (baseline + `spatial_lag` k=3, sem renda) no **test set 20% intocado** → número de generalização reportado. *(A CV mediu no treino; o test final ainda não foi tocado nesta config. É a régua que RF e XGBoost terão de bater.)*
 - [ ] **Random Forest** (bagging)
 - [ ] **XGBoost** (boosting — candidato a campeão, segundo a literatura BR)
 
-> **Marco-zero — baseline oficial** (regressão linear, atributos físicos + `District` one-hot), calculado sobre a **base limpa** (sem Jundiaí, sem coordenadas corrompidas; venda 5.936 / aluguel 6.687):
+> **Evolução com features espaciais (Fase 3)** — efeito de cada feature adicionada ao baseline (split único 80/20; forma final entre parênteses):
 >
-> | Modelo | MAPE | R² | Diagnósticos NBR |
-> |--------|------|-----|------------------|
-> | **Venda** | 17,1% | 0,887 | Validados — VIF moderado (`Toilets`/`Suites` ~5–7), caudas pesadas nos extremos, heterocedasticidade leve |
-> | **Aluguel** | 22,3% | 0,735 | Validados — mais ruidoso no centro, caudas mais leves que a venda |
+> | Modelo | Baseline | + Distância | + Renda (log) | + Spatial lag (k=3) | Decisão final |
+> |--------|----------|-------------|---------------|---------------------|---------------|
+> | **Venda** | 17,1% | 17,1% (nulo) | 16,7% (−0,4) | **15,9%** | distância e renda **fora**; spatial lag **mantido** |
+> | **Aluguel** | 22,3% | 22,2% (nulo) | 22,2% (−0,1) | **21,7%** | distância e renda **fora**; spatial lag **mantido** |
 >
-> *(O baseline preliminar de 16,5% / 22,4% foi descartado: continha imóveis de Jundiaí e coordenadas corrompidas. O número acima, sobre a base limpa, é a referência oficial.)*
+> **Número honesto (CV 5-fold, k=3 — método definitivo de seleção):** venda **15,14% ± 0,45%** / aluguel **21,36% ± 0,24%**. A escolha de k e o descarte da renda foram fechados por **CV**, não pelo split único (este reservado para o teste final de generalização).
 >
-> **Evolução com features espaciais (Fase 3)** — efeito de cada feature adicionada ao baseline, medido pelo mesmo split (forma final entre parênteses):
+> **O spatial lag torna a renda redundante:** MAPE e R² idênticos com e sem renda em **todos os 5 folds** (venda 15,14% ±0,45%; aluguel 21,36% ±0,24%, nas duas configurações). O lag — preço real dos vizinhos imediatos, escala abaixo do bairro — contém o sinal da renda (proxy grossa, área de ponderação) e o supera. Renda descartada por parcimônia (um join espacial a menos em produção).
 >
-> | Modelo | Baseline | + Distância a estação | + Renda da área | Decisão |
-> |--------|----------|----------------------|-----------------|---------|
-> | **Venda** | 17,1% | 17,1% (+0,06 p.p., nulo) | **16,7%** (−0,4 p.p., log) | distância **fora**, renda **mantida** |
-> | **Aluguel** | 22,3% | 22,2% (+0,06 p.p., nulo) | **22,1%** (−0,2 p.p., log) | distância **fora**, renda **mantida** |
->
-> Achado central até aqui: features de **escala grossa** (que competem com o `District`) rendem pouco — a distância à estação deu ganho nulo (cortada por parcimônia) e a renda, apesar do forte poder discriminante (razão 15x entre áreas), agregou só o resíduo intra-distrito (ganho real mas modesto, mantida). O ganho espacial substancial, se houver, depende do **spatial lag** (Bloco 3), que mede algo que o `District` não captura: o preço real dos vizinhos imediatos, abaixo da escala do bairro.
+> Achado central confirmado: features de **escala grossa** (distância, renda) competem com o `District` e rendem pouco ou nada; o ganho espacial substancial veio do **spatial lag**, que mede o que o `District` não mede. As curvas de k são monotônicas crescentes nos dois modelos → o sinal é **local** (k grande borra a vizinhança de volta para a escala do bairro).
 
 ### Fase 5 — Comparação e interpretabilidade
 - [ ] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
