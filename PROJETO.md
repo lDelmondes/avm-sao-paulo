@@ -140,6 +140,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
     Casos com split aninhado (ex.: early stopping do XGBoost, que exige sub-treino/sub-validação dentro de cada fold) reconstroem o lag em cada nível. Target encoding segue a mesma regra: média do bairro out-of-fold, reconstruída por fold.
 - **Endogeneidade:** `Condo` (condomínio) é consequência do mesmo padrão construtivo que determina o preço, não causa dele. Ajuda a predição, mas contamina interpretação causal e infla a sensação de acurácia. Decisão consciente de incluir/excluir, com olhos abertos.
 - **Multicolinearidade:** atributos de tamanho (`Size`, `Rooms`, `Toilets`, `Suites`) são correlacionados; o bloco socioeconômico (IDH, renda, Gini) é quase um fator latente único. Para a regressão, checar **VIF**; considerar reduzir o bloco socioeconômico (escolher um, ou PCA).
+    > *Resultado: o bloco socioeconômico reduziu-se na prática a uma feature (`renda_area`); não houve fator latente múltiplo a reduzir por PCA. A renda mostrou-se redundante com o `District`/`spatial_lag` na regressão, mas útil nas árvores.*
 - **Contemporaneidade temporal:** todo enriquecimento deve refletir a realidade de **2019**. Censo a usar = **2010** (era o vigente em 2019). Estações de metrô/trem = só as que **já existiam em jan/2019** (não dar ao modelo uma amenidade que o comprador da época não tinha).
 - **Interpretabilidade:** se o modelo black-box (XGBoost) vencer, abrir a caixa com **SHAP** — a recomendação na app precisa ser explicável ("R$ 600 mil, puxado por localização e metragem"), não um número solto. Também honra a exigência de interpretabilidade da tradição normativa brasileira.
 
@@ -158,7 +159,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline preliminar (16,5% / 22,4%) foi calculado antes dessa limpeza e **já foi recalculado** no `03` como marco-zero definitivo (17,1% / 22,3% na base limpa).
 
-**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3 por CV, renda descartada (redundante com o lag), spatial lag confirmado como o ganho espacial central. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV e avaliados no test final. **Resultado central: XGBoost campeão nos dois mercados — venda 14,05% / aluguel 20,37% de MAPE.** H1 confirmada (ML supera a regressão). **Próximo passo: Fase 5 — comparação consolidada + SHAP no campeão.**
+**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3, spatial lag confirmado como o ganho espacial central; renda e distância redundantes na regressão linear, reservadas para teste nas árvores. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV (lag reconstruído por fold) e avaliados no test final. Renda e distância, inúteis na regressão, **agregam nas árvores** (não-linearidade) e entram na matriz de árvore. **Resultado central: XGBoost campeão nos dois mercados — venda 14,04% / aluguel 20,29% de MAPE.** H1 confirmada (ML supera a regressão). **Próximo passo: Fase 5 — comparação consolidada + SHAP no campeão.**
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
@@ -187,14 +188,14 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 
 ### Fase 3 — Enriquecimento espacial e socioeconômico (frente nobre)
 - [x] Distância de cada imóvel à estação de metrô/trem mais próxima **existente em jan/2019** (Bloco 1 — construída, auditada; ganho nulo no baseline, feature reservada para os modelos de árvore)
-- [x] Cruzar com dados do **Censo 2010** — renda média domiciliar por área de ponderação (Bloco 2 — join espacial point-in-polygon; ganho modesto mas real, mantida em log)
+- [x] Cruzar com dados do **Censo 2010** — renda média domiciliar por área de ponderação (Bloco 2 — join espacial point-in-polygon; redundante com o spatial lag na regressão (~0,1 p.p.), mas **agrega nas árvores** — reservada para a fase de ML, em log)
 - [x] Construir a **matriz de pesos espaciais** (W) — contiguidade ou k-NN (Bloco 3)
 - [x] Calcular o **spatial lag** (preço médio dos vizinhos, só no treino, excluindo a própria observação)
 - [x] Análise de **autocorrelação espacial** (Moran's I / LISA)
 
 ### Fase 4 — Modelagem (×2: venda e aluguel)
 - [x] Baseline: **regressão linear múltipla** com diagnósticos (VIF, normalidade dos resíduos, homocedasticidade) — referência NBR
-- [x] **Avaliar a configuração espacial final** (baseline + `spatial_lag` k=3, sem renda) no **test set 20% intocado** → número de generalização reportado. *(A CV mediu no treino; o test final ainda não foi tocado nesta config. É a régua que RF e XGBoost terão de bater.)*
+- [x] **Avaliar a configuração espacial final** da regressão (físicas + District + `spatial_lag` k=3; sem renda, sem distância — ambas redundantes na forma linear) no **test set 20% intocado** → venda 15,98% / aluguel 21,67%. Régua que RF e XGBoost superaram.
 - [x] **Random Forest** (bagging)
 - [x] **XGBoost** (boosting — candidato a campeão, segundo a literatura BR)
 
@@ -202,13 +203,15 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 >
 > | Modelo | Venda MAPE | Venda R² | Aluguel MAPE | Aluguel R² |
 > |--------|-----------|----------|--------------|------------|
-> | Regressão linear | 15,90% | 0,909 | 21,66% | 0,741 |
-> | Random Forest | 14,48% | 0,898 | 19,91% | 0,711 |
-> | **XGBoost** | **14,05%** | **0,926** | 20,37% | 0,738 |
+> | Regressão linear | 15,98% | 0,909 | 21,67% | 0,741 |
+> | Random Forest | 14,38% | 0,897 | 19,91% | 0,699 |
+> | **XGBoost** | **14,04%** | **0,928** | 20,29% | 0,740 |
 >
-> **H1 confirmada:** ML supera a regressão nos dois mercados. **H3 confirmada:** comportamento difere por mercado (na venda o XGB domina os três indicadores; no aluguel RF e XGB empatam tecnicamente — RF 0,46 p.p. à frente no test, indistinguíveis na CV). **Campeão: XGBoost nos dois** — na venda por mérito claro; no aluguel por consistência de produto (empate técnico com RF, mesmo algoritmo simplifica deploy e SHAP).
+> **H1 confirmada:** ML supera a regressão nos dois mercados. **H3 confirmada:** comportamento difere por mercado (na venda o XGB domina os três indicadores; no aluguel RF e XGB empatam tecnicamente — RF 0,38 p.p. à frente no test, indistinguíveis na CV). **Campeão: XGBoost nos dois** — na venda por mérito claro; no aluguel por consistência de produto (empate técnico com RF, mesmo algoritmo simplifica deploy e SHAP).
 >
-> Achados de método (Fase 4): (a) `distancia_estacao`, nula na regressão, agrega nas árvores (captam sua não-linearidade) → entra na matriz de árvore; (b) target encoding do District testado contra one-hot, cada um no seu ótimo — one-hot venceu/empatou, mantido.
+> **Matriz diferenciada por modelo:** regressão = físicas + District + spatial_lag (k=3). Árvores = físicas + District + spatial_lag + distancia_estacao + renda_area (log), 107 features (venda) / 105 (aluguel).
+>
+> Achados de método (Fase 4): `distancia_estacao` E `renda_area`, ambas nulas/redundantes na regressão, **agregam nas árvores** (que captam a não-linearidade da relação localização↔preço) → ambas entram na matriz de árvore. Renda: ganho de ~0,8 p.p. (venda) / ~0,4 p.p. (aluguel) nas árvores, contra ~0,1 p.p. na regressão. Target encoding do District testado contra one-hot (cada um no seu ótimo) — one-hot venceu nos 4 casos, mantido.
 
 ### Fase 5 — Comparação e interpretabilidade
 - [ ] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
@@ -271,7 +274,6 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 | Regressão baseline + diagnósticos | Regressão linear múltipla / inferência estatística |
 | Random Forest, XGBoost, validação | Ensembles (bagging / boosting) |
 | Spatial lag, autocorrelação, distância a POIs | Estatística espacial |
-| Redução do bloco socioeconômico (se aplicada) | Análise fatorial / PCA |
 | Encapsulamento e publicação do modelo | Deployment de modelos |
 
 ---
