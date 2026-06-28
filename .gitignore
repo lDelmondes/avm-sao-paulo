@@ -1,4 +1,4 @@
-# Ambiente virtual — NUNCA versionar
+# Ambiente virtual
 venv/
 
 # Cache do Python
@@ -12,5 +12,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Dados — não versionar (ver explicação abaixo)
+# Dados — não versionar
 data/
