@@ -71,7 +71,7 @@ A natureza do que estamos construindo é um **AVM-produto** (uma *sugestão* de 
 
 | # | Decisão | Detalhe |
 |---|---------|---------|
-| 1 | **Venda E aluguel** | **Dois modelos separados**, não um modelo único com `Negotiation Type` como feature. Motivo: os preços implícitos dos atributos são estruturalmente diferentes entre comprar e alugar (escala e elasticidade distintas). Bônus: comparar os coeficientes vira insight de produto. |
+| 1 | **Venda E aluguel** | **Dois modelos separados**, não um modelo único com `Negotiation Type` como feature. Motivo: os preços implícitos dos atributos são estruturalmente diferentes entre comprar e alugar (escala e elasticidade distintas). Bônus: comparar como cada mercado precifica os atributos (via SHAP) vira insight de produto. |
 | 2 | **Frente espacial = MUST** | **Spatial lag + autocorrelação espacial** são componentes obrigatórios do modelo: a localização é o principal determinante de preço imobiliário, e o *spatial lag* captura efeitos locais não observados pelas demais variáveis. Complementos: **distância à estação de metrô/trem mais próxima** e **bloco socioeconômico do entorno** (IDH, renda, Gini). |
 | 3 | **Aplicação = Streamlit** | **Streamlit + Streamlit Community Cloud** (hospedagem pública gratuita). *Não* Vercel (Vercel hospeda front-end JS, não roda o modelo Python). Objetivo: link público, qualquer pessoa testa. |
 | 4 | **Ambiente local** | VSCode local + ambiente virtual Python (`venv`). Sem nuvem para processamento — a máquina dá conta deste volume. |
@@ -159,7 +159,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline preliminar (16,5% / 22,4%) foi calculado antes dessa limpeza e **já foi recalculado** no `03` como marco-zero definitivo (17,1% / 22,3% na base limpa).
 
-**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3, spatial lag confirmado como o ganho espacial central; renda e distância redundantes na regressão linear, reservadas para teste nas árvores. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV (lag reconstruído por fold) e avaliados no test final. Renda e distância, inúteis na regressão, **agregam nas árvores** (não-linearidade) e entram na matriz de árvore. **Resultado central: XGBoost campeão nos dois mercados — venda 14,04% / aluguel 20,29% de MAPE.** H1 confirmada (ML supera a regressão). **Próximo passo: Fase 5 — comparação consolidada + SHAP no campeão.**
+**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3, spatial lag confirmado como o ganho espacial central; renda e distância redundantes na regressão linear, reservadas para teste nas árvores. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV (lag reconstruído por fold) e avaliados no test final. Renda e distância, inúteis na regressão, **agregam nas árvores** (não-linearidade) e entram na matriz de árvore. **Resultado central: XGBoost campeão nos dois mercados — venda 14,04% / aluguel 20,29% de MAPE.** H1 confirmada (ML supera a regressão). **Fase 5 (interpretabilidade) concluída** — SHAP no campeão, diagnósticos da regressão, comparação consolidada. **Próximo passo: Fase 6 — aplicação Streamlit.**  
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
@@ -214,10 +214,37 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 > Achados de método (Fase 4): `distancia_estacao` E `renda_area`, ambas nulas/redundantes na regressão, **agregam nas árvores** (que captam a não-linearidade da relação localização↔preço) → ambas entram na matriz de árvore. Renda: ganho de ~0,8 p.p. (venda) / ~0,4 p.p. (aluguel) nas árvores, contra ~0,1 p.p. na regressão. Target encoding do District testado contra one-hot (cada um no seu ótimo) — one-hot venceu nos 4 casos, mantido.
 
 ### Fase 5 — Comparação e interpretabilidade
-- [ ] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
-- [ ] **SHAP** no modelo campeão (importância e direção das features)
-- [ ] Narrativa: o que cada modelo ganha/perde; trade-off interpretabilidade × acurácia
-- [ ] Comparação de coeficientes venda × aluguel (insight de produto)
+- [x] Tabela comparativa de MAPE / MAE / R² (no teste), por modelo e por tipo de negociação
+- [x] **SHAP** no modelo campeão (importância e direção das features)
+- [x] Narrativa: o que cada modelo ganha/perde; trade-off interpretabilidade × acurácia
+- [x] ~~Comparação de coeficientes venda × aluguel~~ → **substituída por SHAP.** Coeficientes da regressão são inviáveis de interpretar (pressupostos violados + multicolinearidade VIF 5-7 nos atributos de tamanho); o insight de produto vem do SHAP
+
+> **Achados de interpretabilidade (Fase 5):**
+>
+> **O que dirige o preço (SHAP):** tamanho (`log_Size`) domina, seguido de `spatial_lag`
+> (2º — valida a frente espacial: o lag é o 2º motor de preço e tem VIF ~2, informação
+> não-redundante) e `renda_area` (3º). District agregado, distância e atributos pesam menos.
+>
+> **Achados de H3 (venda × aluguel divergem em O QUE dirige o preço):**
+> - **Distância à estação inverte de sinal:** na venda, longe da estação → preço SOBE
+>   (bairros nobres de SP são orientados ao carro); no aluguel, longe → preço CAI (o
+>   locatário depende mais de transporte público). Mesma feature, direção oposta.
+> - **Furnished e New importam só no aluguel** (mobília +18% vs +4%; novo +25% vs −2%):
+>   o locatário paga por pronto-para-morar, o comprador por patrimônio.
+> - **Tamanho domina menos no aluguel** (elasticidade 0,45 vs 0,74 na venda).
+> - **Renda e spatial_lag pesam igual nos dois** — localização e entorno são universais.
+>
+> A inversão da distância valida retroativamente a decisão de escopo nº 1 (modelos
+> separados): um modelo único mediaria os dois efeitos opostos e perderia ambos.
+>
+> **Diagnósticos da regressão (6.1):** normalidade e homocedasticidade rejeitadas
+> formalmente (p≈0), mas violação moderada à inspeção visual (resíduos quase normais no
+> centro, problema nas caudas; curtose 9 na venda / 5 no aluguel). Multicolinearidade
+> moderada em Toilets/Suites (VIF 5-7). Conclusão: inviável interpretar coeficientes
+> individuais → interpretabilidade via SHAP; a violação dos pressupostos justifica o ML.
+>
+> **Artefatos visuais** (em `outputs/`): `shap_beeswarm_{venda,aluguel}.png`,
+> `shap_bar_{venda,aluguel}.png`, `diagnostico_residuos_{venda,aluguel}.png`
 
 ### Fase 6 — Aplicação Streamlit
 - [ ] Interface de cadastro de imóvel (campos dos atributos)
@@ -232,7 +259,8 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 
 **Escada de três níveis, de interpretável a preciso:**
 
-1. **Regressão linear múltipla (baseline normativo).** Método que a NBR 14653 consagra. Trabalha com **log do preço** (relação hedônica é multiplicativa; resíduos do preço bruto são feios). Box-Cox e diagnósticos formais (normalidade, homocedasticidade, multicolinearidade) fazem parte.
+1. **Regressão linear múltipla (baseline normativo).** Método que a NBR 14653 consagra. Trabalha com **log do preço** (relação hedônica é multiplicativa; resíduos do preço bruto são feios). Box-Cox e diagnósticos formais (normalidade, homocedasticidade, multicolinearidade) fazem parte.   
+    - Os diagnósticos da versão final (Seção 6.1) rejeitam os pressupostos — violação moderada, mas suficiente para inviabilizar inferência sobre coeficientes
 
 2. **Random Forest (bagging).** Robusto, pouca configuração. Segundo degrau; tolera melhor a colinearidade.
 
