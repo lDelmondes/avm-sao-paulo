@@ -12,5 +12,13 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Dados — não versionar
-data/
+# Dados crus — não versionar (apenas a pasta data/ na RAIZ do repo).
+# A barra inicial ancora a regra na raiz, então NÃO casa app/data/.
+/data/
+
+# app/data/ É versionado de propósito: é o pacote de dados de produção que o
+# predictor carrega (treino_ref_*, estacoes_2019, areas_renda). O Streamlit Cloud
+# clona o repo e precisa desses parquets para o app rodar. (Negação explícita,
+# redundante com a âncora acima, mas deixa a intenção clara.)
+!app/data/
+!app/data/**
