@@ -1,0 +1,10 @@
+# Tema do AVM São Paulo — paleta monocromática AZUL / preto / cinza / branco.
+# Os componentes nativos do Streamlit (botões, toggles, segmented_control, foco dos
+# inputs, spinner) seguem o primaryColor azul; nenhuma outra cor de marca é usada.
+[theme]
+base = "light"
+primaryColor = "#1d4ed8"            # azul principal (botões, toggles, destaques)
+backgroundColor = "#ffffff"        # branco
+secondaryBackgroundColor = "#f1f5f9"  # cinza-azulado (containers, inputs)
+textColor = "#0f172a"              # quase preto
+font = "sans serif"
