@@ -116,14 +116,19 @@ A natureza do que estamos construindo é um **AVM-produto** (uma *sugestão* de 
 avm-sao-paulo/
 ├── venv/                       # ambiente virtual (não versionar)
 ├── data/                       # dados brutos (não versionar)
-│   ├── sao-paulo-properties-april-2019.csv
 │   └── processed/              # artefatos tratados, ponte entre notebooks
-│       └── imoveis_tratados.parquet
-├── models/                     # modelos campeões serializados (.joblib) — VERSIONAR (deploy)
+├── app/                        # aplicação Streamlit (Fase 6)
+│   ├── app.py                  # UI
+│   ├── predictor.py            # inferência fiel ao modelo
+│   ├── geocode.py              # CEP → coordenada (ViaCEP + Nominatim)
+│   └── data/                   # pacote de dados de produção (VERSIONADO)
+├── models/                     # modelos campeões (.joblib) — VERSIONAR
+├── docs/                       # SPEC_CONTRATO, one-pager, PRD de jornadas
+├── outputs/                    # gráficos (SHAP, diagnósticos) e screenshot
+├── .streamlit/config.toml      # tema do app
 ├── 01_auditoria.ipynb          # Fase 1
-├── 02_preparacao.ipynb         # Fases 2 e 3
+├── 02_preparacao.ipynb         # Fases 2 e 3 (registro histórico)
 ├── 03_modelagem.ipynb          # Fases 4 e 5
-├── app/                        # aplicação Streamlit — Fase 6
 ├── PROJETO.md                  # este documento
 ├── requirements.txt
 └── README.md
@@ -159,7 +164,7 @@ Estes são os pontos onde projetos de AVM costumam morrer. Revisitar sempre.
 
 Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas corrompidas e imóveis fora de escopo (Jundiaí), o que obrigou a re-limpar a base e, por consequência, a refazer a preparação e o baseline sobre a base limpa. Por isso o `02` acumulou a auditoria espacial (Bloco 1) e passou a ser o **registro histórico** dessa construção (não é mais editado); a remodelagem a partir da base limpa — preparação, baseline definitivo e os blocos espaciais seguintes — vive no `03`. O baseline preliminar (16,5% / 22,4%) foi calculado antes dessa limpeza e **já foi recalculado** no `03` como marco-zero definitivo (17,1% / 22,3% na base limpa).
 
-**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3, spatial lag confirmado como o ganho espacial central; renda e distância redundantes na regressão linear, reservadas para teste nas árvores. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV (lag reconstruído por fold) e avaliados no test final. Renda e distância, inúteis na regressão, **agregam nas árvores** (não-linearidade) e entram na matriz de árvore. **Resultado central: XGBoost campeão nos dois mercados — venda 14,04% / aluguel 20,29% de MAPE.** H1 confirmada (ML supera a regressão). **Fase 5 (interpretabilidade) concluída** — SHAP no campeão, diagnósticos da regressão, comparação consolidada. **Próximo passo: Fase 6 — aplicação Streamlit.**  
+**Progresso atual:** Fases 0–4 concluídas. Baseline oficial na base limpa (venda 17,1% / aluguel 22,3%). Fase 3 (espacial): k=3, spatial lag confirmado como o ganho espacial central; renda e distância redundantes na regressão linear, reservadas para teste nas árvores. Fase 4 (modelagem) **concluída** — RF e XGBoost treinados, selecionados por CV (lag reconstruído por fold) e avaliados no test final. Renda e distância, inúteis na regressão, **agregam nas árvores** (não-linearidade) e entram na matriz de árvore. **Resultado central: XGBoost campeão nos dois mercados — venda 14,04% / aluguel 20,29% de MAPE.** H1 confirmada (ML supera a regressão). **Fase 5 (interpretabilidade) concluída** — SHAP no campeão, diagnósticos da regressão, comparação consolidada. **Fase 6 (aplicação) concluída** — app Streamlit no ar (https://avm-sao-paulo.streamlit.app/), com inferência fiel ao notebook (diff ~1e-11), geocodificação por CEP e explicação dos fatores. **Projeto completo: do dado cru ao produto público.**
 
 ### Fase 0 — Fundação ✅
 - [x] Criar pasta do projeto e abrir no VSCode
@@ -247,11 +252,11 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 > `shap_bar_{venda,aluguel}.png`, `diagnostico_residuos_{venda,aluguel}.png`
 
 ### Fase 6 — Aplicação Streamlit
-- [ ] Interface de cadastro de imóvel (campos dos atributos)
-- [ ] Integração do modelo treinado → recomendação de preço
-- [ ] Exibir a recomendação com explicação (o "porquê" do valor)
-- [ ] Deploy no Streamlit Community Cloud (link público)
-- [ ] Documentação final
+- [x] Interface de cadastro de imóvel (campos dos atributos)
+- [x] Integração do modelo treinado → recomendação de preço
+- [x] Exibir a recomendação com explicação (o "porquê" do valor)
+- [x] Deploy no Streamlit Community Cloud (link público)
+- [x] Documentação final
 
 ---
 
@@ -303,6 +308,8 @@ Nota sobre a evolução real do projeto: a Fase 3 (espacial) revelou coordenadas
 | Random Forest, XGBoost, validação | Ensembles (bagging / boosting) |
 | Spatial lag, autocorrelação, distância a POIs | Estatística espacial |
 | Encapsulamento e publicação do modelo | Deployment de modelos |
+| Geocodificação e derivação de features em produção | Engenharia de features / deploy |
+| Aplicação web interativa (Streamlit) | Produto / deployment |
 
 ---
 
